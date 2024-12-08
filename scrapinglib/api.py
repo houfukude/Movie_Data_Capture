@@ -6,7 +6,7 @@ import typing
 from .parser import Parser
 import config
 import importlib
-
+import unicodedata
 
 def search(number, sources: str = None, **kwargs):
     """ 根据`番号/电影`名搜索信息
@@ -16,6 +16,8 @@ def search(number, sources: str = None, **kwargs):
     :param type: `adult`, `general`
     """
     sc = Scraping()
+    # 将字符串规范化为NFKC形式 将全角字符转换为半角字符
+    number = unicodedata.normalize('NFKC', number)
     return sc.search(number, sources, **kwargs)
 
 
