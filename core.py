@@ -70,11 +70,11 @@ def get_info(json_data):  # 返回json里的数据
     return title, studio, year, outline, runtime, director, actor_photo, release, number, cover, trailer, website, series, label
 
 
-def small_cover_check(path, filename, cover_small, movie_path, extra_headers=None):
+def small_cover_check(path, filename, cover_small, movie_path, extra_headers=None, need_scraper=False):
     full_filepath = Path(path) / filename
     if config.getInstance().download_only_missing_images() and not file_not_exist_or_empty(str(full_filepath)):
         return
-    if download_file_with_filename(cover_small, filename, path, movie_path, extra_headers=extra_headers) == 'DOWNLOAD_SUCCESS':
+    if download_file_with_filename(cover_small, filename, path, movie_path, extra_headers=extra_headers, need_scraper=need_scraper) == 'DOWNLOAD_SUCCESS':
         print('[+]Image Downloaded! ' + full_filepath.name)
     else:
         print('[-]Failed to download small cover image!')
@@ -115,7 +115,7 @@ def create_folder(json_data):  # 创建文件夹
 # =====================资源下载部分===========================
 
 # path = examle:photo , video.in the Project Folder!
-def download_file_with_filename(url, filename, path, filepath, extra_headers=None):
+def download_file_with_filename(url, filename, path, filepath, extra_headers=None, need_scraper=False):
     conf = config.getInstance()
     configProxy = conf.proxy()
 
@@ -127,7 +127,10 @@ def download_file_with_filename(url, filename, path, filepath, extra_headers=Non
                 except:
                     print(f"[-]Fatal error! Can not make folder '{path}'")
                     os._exit(0)
-            r = httprequest.get(url=url, return_type='content', extra_headers=extra_headers)
+            if need_scraper:
+                r = httprequest.get_html_by_scraper(url=url, return_type='content', extra_headers=extra_headers)
+            else:
+                r = httprequest.get(url=url, return_type='content', extra_headers=extra_headers)
             if r == '':
                 print('[-]Movie Download Data not found!')
                 return 'DOWNLOAD_FAILED'
@@ -148,16 +151,16 @@ def download_file_with_filename(url, filename, path, filepath, extra_headers=Non
     return 'DOWNLOAD_FAILED'
 
 
-def trailer_download(trailer, leak_word, c_word, hack_word, number, path, filepath):
+def trailer_download(trailer, leak_word, c_word, hack_word, number, path, filepath, need_scraper=False):
     if download_file_with_filename(trailer, number + leak_word + c_word + hack_word + '-trailer.mp4', path,
-                                   filepath) == 'DOWNLOAD_FAILED':
+                                   filepath, need_scraper=need_scraper) == 'DOWNLOAD_FAILED':
         return
     configProxy = config.getInstance().proxy()
     for i in range(configProxy.retry):
         if file_not_exist_or_empty(path + '/' + number + leak_word + c_word + hack_word + '-trailer.mp4'):
             print('[!]Video Download Failed! Trying again. [{}/3]', i + 1)
             if download_file_with_filename(trailer, number + leak_word + c_word + hack_word + '-trailer.mp4', path,
-                                           filepath) == 'DOWNLOAD_SUCCESS':
+                                           filepath, need_scraper=need_scraper) == 'DOWNLOAD_SUCCESS':
                 continue
         else:
             break
@@ -210,7 +213,7 @@ def extrafanart_download(data, path, number, filepath, extra_headers=None):
     extrafanart_download_one_by_one(data, path, filepath, extra_headers)
 
 
-def extrafanart_download_one_by_one(data, path, filepath, extra_headers=None):
+def extrafanart_download_one_by_one(data, path, filepath, extra_headers=None, need_scraper=False):
     tm_start = time.perf_counter()
     j = 1
     conf = config.getInstance()
@@ -222,13 +225,13 @@ def extrafanart_download_one_by_one(data, path, filepath, extra_headers=None):
         jpg_fullpath = os.path.join(path, jpg_filename)
         if download_only_missing_images and not file_not_exist_or_empty(jpg_fullpath):
             continue
-        if download_file_with_filename(url, jpg_filename, path, filepath, extra_headers) == 'DOWNLOAD_FAILED':
+        if download_file_with_filename(url, jpg_filename, path, filepath, extra_headers, need_scraper=need_scraper) == 'DOWNLOAD_FAILED':
             moveFailedFolder(filepath)
             return
         for i in range(configProxy.retry):
             if file_not_exist_or_empty(jpg_fullpath):
                 print('[!]Image Download Failed! Trying again. [{}/3]', i + 1)
-                if download_file_with_filename(url, jpg_filename, path, filepath, extra_headers) == 'DOWNLOAD_SUCCESS':
+                if download_file_with_filename(url, jpg_filename, path, filepath, extra_headers, need_scraper=need_scraper) == 'DOWNLOAD_SUCCESS':
                     continue
             else:
                 break
@@ -282,11 +285,11 @@ def image_ext(url):
 
 
 # 封面是否下载成功，否则移动到failed
-def image_download(cover, fanart_path, thumb_path, path, filepath, extra_headers=None):
+def image_download(cover, fanart_path, thumb_path, path, filepath, extra_headers=None, need_scraper=False):
     full_filepath = os.path.join(path, thumb_path)
     if config.getInstance().download_only_missing_images() and not file_not_exist_or_empty(full_filepath):
         return
-    if download_file_with_filename(cover, thumb_path, path, filepath, extra_headers=extra_headers) == 'DOWNLOAD_FAILED':
+    if download_file_with_filename(cover, thumb_path, path, filepath, extra_headers=extra_headers, need_scraper=need_scraper) == 'DOWNLOAD_FAILED':
         moveFailedFolder(filepath)
         return
 
@@ -294,7 +297,7 @@ def image_download(cover, fanart_path, thumb_path, path, filepath, extra_headers
     for i in range(configProxy.retry):
         if file_not_exist_or_empty(full_filepath):
             print('[!]Image Download Failed! Trying again. [{}/3]', i + 1)
-            if download_file_with_filename(cover, thumb_path, path, filepath, extra_headers=extra_headers) == 'DOWNLOAD_SUCCESS':
+            if download_file_with_filename(cover, thumb_path, path, filepath, extra_headers=extra_headers, need_scraper=need_scraper) == 'DOWNLOAD_SUCCESS':
                 continue
         else:
             break
@@ -993,14 +996,15 @@ def core_main(movie_path, number_th, oCC, specified_source: typing.List[str] = [
         if imagecut == 3:
             small_cover_check(path, poster_path, json_data.get('cover_small'), movie_path, )
 
+        need_scraper = json_data.get('source') == 'getchu' or json_data.get('source') == 'getchu_dl'
         # creatFolder会返回番号路径
-        image_download(cover, fanart_path, thumb_path, path, movie_path, extra_headers=json_data['headers'])
+        image_download(cover, fanart_path, thumb_path, path, movie_path, extra_headers=json_data['headers'], need_scraper=need_scraper)
 
         if not multi_part or part.lower() == '-cd1':
             try:
                 # 下载预告片
                 if conf.is_trailer() and json_data.get('trailer'):
-                    trailer_download(json_data.get('trailer'), leak_word, c_word, hack_word, number, path, movie_path)
+                    trailer_download(json_data.get('trailer'), leak_word, c_word, hack_word, number, path, movie_path, need_scraper=need_scraper)
 
                 # 下载剧照 data, path, filepath
                 if conf.is_extrafanart() and json_data.get('extrafanart'):
@@ -1053,14 +1057,15 @@ def core_main(movie_path, number_th, oCC, specified_source: typing.List[str] = [
         if imagecut == 3:
             small_cover_check(path, poster_path, json_data.get('cover_small'), movie_path, extra_headers=json_data['headers'])
 
+        need_scraper = json_data.get('source') == 'getchu' or json_data.get('source') == 'getchu_dl'
         # creatFolder会返回番号路径
-        image_download(cover, fanart_path, thumb_path, path, movie_path, extra_headers=json_data['headers'])
+        image_download(cover, fanart_path, thumb_path, path, movie_path, extra_headers=json_data['headers'], need_scraper=need_scraper)
 
         if not multi_part or part.lower() == '-cd1':
             try:
                 # 下载预告片
                 if conf.is_trailer() and json_data.get('trailer'):
-                    trailer_download(json_data.get('trailer'), leak_word, c_word, hack_word, number, path, movie_path)
+                    trailer_download(json_data.get('trailer'), leak_word, c_word, hack_word, number, path, movie_path, need_scraper)
 
                 # 下载剧照 data, path, filepath
                 if conf.is_extrafanart() and json_data.get('extrafanart'):
