@@ -51,15 +51,9 @@ class Getchu(Parser):
         return self.GETCHU_DETAIL_URL.format(id=self.number)
 
     def getHtml(self, url, type=None):
-        """ 访问网页(指定EUC-JP)
+        """ 通过 scraper 的方式访问网页(指定EUC-JP)
         """
-        resp = httprequest.get_html_by_scraper(url, cookies=self.cookies, proxies=self.proxies, extra_headers=self.extraheader, encoding='euc_jis_2004', verify=self.verify, return_type=type)
-        if '<title>404 Page Not Found' in resp \
-                or '<title>未找到页面' in resp \
-                or '404 Not Found' in resp \
-                or '<title>404' in resp \
-                or '<title>お探しの商品が見つかりません' in resp:
-            return 404
+        resp = self.get_by_scraper(url,  encoding='euc_jis_2004',  type=type)
         return resp
 
     def getNum(self, htmltree):

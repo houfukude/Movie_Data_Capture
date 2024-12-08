@@ -74,8 +74,10 @@ def small_cover_check(path, filename, cover_small, movie_path, extra_headers=Non
     full_filepath = Path(path) / filename
     if config.getInstance().download_only_missing_images() and not file_not_exist_or_empty(str(full_filepath)):
         return
-    download_file_with_filename(cover_small, filename, path, movie_path, extra_headers=extra_headers)
-    print('[+]Image Downloaded! ' + full_filepath.name)
+    if download_file_with_filename(cover_small, filename, path, movie_path, extra_headers=extra_headers) == 'DOWNLOAD_SUCCESS':
+        print('[+]Image Downloaded! ' + full_filepath.name)
+    else:
+        print('[-]Failed to download small cover image!')
 
 
 def create_folder(json_data):  # 创建文件夹
@@ -128,35 +130,35 @@ def download_file_with_filename(url, filename, path, filepath, extra_headers=Non
             r = httprequest.get(url=url, return_type='content', extra_headers=extra_headers)
             if r == '':
                 print('[-]Movie Download Data not found!')
-                return
+                return 'DOWNLOAD_FAILED'
             with open(os.path.join(path, filename), "wb") as code:
                 code.write(r)
-            return
+            return 'DOWNLOAD_SUCCESS'
         except requests.exceptions.ProxyError:
             i += 1
             print('[-]Image Download : Proxy error ' + str(i) + '/' + str(configProxy.retry))
         # except IOError:
         #     print(f"[-]Create Directory '{path}' failed!")
         #     moveFailedFolder(filepath)
-        #     return
+        #     return 'DOWNLOAD_FAILED'
         except Exception as e:
             print('[-]Image Download :Error', e)
     print('[-]Connect Failed! Please check your Proxy or Network!')
     moveFailedFolder(filepath)
-    return
+    return 'DOWNLOAD_FAILED'
 
 
 def trailer_download(trailer, leak_word, c_word, hack_word, number, path, filepath):
     if download_file_with_filename(trailer, number + leak_word + c_word + hack_word + '-trailer.mp4', path,
-                                   filepath) == 'failed':
+                                   filepath) == 'DOWNLOAD_FAILED':
         return
     configProxy = config.getInstance().proxy()
     for i in range(configProxy.retry):
         if file_not_exist_or_empty(path + '/' + number + leak_word + c_word + hack_word + '-trailer.mp4'):
             print('[!]Video Download Failed! Trying again. [{}/3]', i + 1)
-            download_file_with_filename(trailer, number + leak_word + c_word + hack_word + '-trailer.mp4', path,
-                                        filepath)
-            continue
+            if download_file_with_filename(trailer, number + leak_word + c_word + hack_word + '-trailer.mp4', path,
+                                           filepath) == 'DOWNLOAD_SUCCESS':
+                continue
         else:
             break
     if file_not_exist_or_empty(path + '/' + number + leak_word + c_word + hack_word + '-trailer.mp4'):
@@ -220,14 +222,14 @@ def extrafanart_download_one_by_one(data, path, filepath, extra_headers=None):
         jpg_fullpath = os.path.join(path, jpg_filename)
         if download_only_missing_images and not file_not_exist_or_empty(jpg_fullpath):
             continue
-        if download_file_with_filename(url, jpg_filename, path, filepath, extra_headers) == 'failed':
+        if download_file_with_filename(url, jpg_filename, path, filepath, extra_headers) == 'DOWNLOAD_FAILED':
             moveFailedFolder(filepath)
             return
         for i in range(configProxy.retry):
             if file_not_exist_or_empty(jpg_fullpath):
                 print('[!]Image Download Failed! Trying again. [{}/3]', i + 1)
-                download_file_with_filename(url, jpg_filename, path, filepath, extra_headers)
-                continue
+                if download_file_with_filename(url, jpg_filename, path, filepath, extra_headers) == 'DOWNLOAD_SUCCESS':
+                    continue
             else:
                 break
         if file_not_exist_or_empty(jpg_fullpath):
@@ -284,7 +286,7 @@ def image_download(cover, fanart_path, thumb_path, path, filepath, extra_headers
     full_filepath = os.path.join(path, thumb_path)
     if config.getInstance().download_only_missing_images() and not file_not_exist_or_empty(full_filepath):
         return
-    if download_file_with_filename(cover, thumb_path, path, filepath, extra_headers=extra_headers) == 'failed':
+    if download_file_with_filename(cover, thumb_path, path, filepath, extra_headers=extra_headers) == 'DOWNLOAD_FAILED':
         moveFailedFolder(filepath)
         return
 
@@ -292,8 +294,8 @@ def image_download(cover, fanart_path, thumb_path, path, filepath, extra_headers
     for i in range(configProxy.retry):
         if file_not_exist_or_empty(full_filepath):
             print('[!]Image Download Failed! Trying again. [{}/3]', i + 1)
-            download_file_with_filename(cover, thumb_path, path, filepath, extra_headers=extra_headers)
-            continue
+            if download_file_with_filename(cover, thumb_path, path, filepath, extra_headers=extra_headers) == 'DOWNLOAD_SUCCESS':
+                continue
         else:
             break
     if file_not_exist_or_empty(full_filepath):
@@ -505,38 +507,41 @@ def add_mark(poster_path, thumb_path, cn_sub, leak, uncensored, hack, _4k, iso) 
     postion = config.getInstance().watermark_postion()
     for mark_type in mark_types:
         postion = add_mark_thread(postion, thumb_path, mark_type)
-        print(f'[+]Add Thumb Mark:         {mark_type} at {postion}')
 
     postion = config.getInstance().watermark_postion()
     for mark_type in mark_types:
         postion = add_mark_thread(postion, poster_path, mark_type)
-        print(f'[+]Add Poster Mark:         {mark_type} at {postion}')
 
 
 def add_mark_thread(count, pic_path, mark_type):
     size = 9
-    img_pic = Image.open(pic_path)
-    # 获取自定义位置，取余配合pos达到顺时针添加的效果
-    # 左上 0, 右上 1, 右下 2， 左下 3
-    if mark_type == "字幕":
-        add_to_pic(pic_path, img_pic, size, count, 1)  # 添加
-        count = (count + 1) % 4
-    if mark_type == '无码流出':
-        add_to_pic(pic_path, img_pic, size, count, 2)
-        count = (count + 1) % 4
-    if mark_type == '无码':
-        add_to_pic(pic_path, img_pic, size, count, 3)
-        count = (count + 1) % 4
-    if mark_type == '破解':
-        add_to_pic(pic_path, img_pic, size, count, 4)
-        count = (count + 1) % 4
-    if mark_type == '4k':
-        add_to_pic(pic_path, img_pic, size, count, 5)
-        count = (count + 1) % 4
-    if mark_type == 'iso':
-        add_to_pic(pic_path, img_pic, size, count, 6)
-    img_pic.close()
-    return count
+    try:
+        img_pic = Image.open(pic_path)
+        # 获取自定义位置，取余配合pos达到顺时针添加的效果
+        # 左上 0, 右上 1, 右下 2， 左下 3
+        if mark_type == "字幕":
+            add_to_pic(pic_path, img_pic, size, count, 1)  # 添加
+            count = (count + 1) % 4
+        if mark_type == '无码流出':
+            add_to_pic(pic_path, img_pic, size, count, 2)
+            count = (count + 1) % 4
+        if mark_type == '无码':
+            add_to_pic(pic_path, img_pic, size, count, 3)
+            count = (count + 1) % 4
+        if mark_type == '破解':
+            add_to_pic(pic_path, img_pic, size, count, 4)
+            count = (count + 1) % 4
+        if mark_type == '4k':
+            add_to_pic(pic_path, img_pic, size, count, 5)
+            count = (count + 1) % 4
+        if mark_type == 'iso':
+            add_to_pic(pic_path, img_pic, size, count, 6)
+        img_pic.close()
+        print(f'[+]Add Poster Mark:         {mark_type} at {count}')
+        return count
+    except Exception as e:
+        print(f'[-]Add Mark Failed:         {mark_type} {e}')
+        return count
 
 
 def add_to_pic(pic_path, img_pic, size, count, mode):

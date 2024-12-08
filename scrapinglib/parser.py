@@ -131,10 +131,10 @@ class Parser:
             return 404
         return resp
 
-    def get_by_scraper(self, url, type=None, retry=0):
+    def get_by_scraper(self, url, encoding=None, type=None, retry=0):
         """ 访问网页
         """
-        resp = httprequest.get_html_by_scraper(url, cookies=self.cookies, proxies=self.proxies, verify=self.verify, return_type=type, retry=retry)
+        resp = httprequest.get_html_by_scraper(url, cookies=self.cookies, proxies=self.proxies, extra_headers=self.extraheader, encoding=encoding, verify=self.verify, return_type=type)
         if '<title>404 Page Not Found' in resp \
                 or '<title>未找到页面' in resp \
                 or '404 Not Found' in resp \
