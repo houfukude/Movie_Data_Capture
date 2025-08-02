@@ -569,7 +569,7 @@ def main(args: tuple) -> Path:
             # Download Mapping Table, parallel version
 
             def fmd(f) -> typing.Tuple[str, Path]:
-                return ('https://raw.githubusercontent.com/yoshiko2/Movie_Data_Capture/master/MappingTable/' + f,
+                return ('https://raw.githubusercontent.com/houfukude/Movie_Data_Capture/master/MappingTable/' + f,
                         Path.home() / '.local' / 'share' / 'mdc' / f)
 
             map_tab = (fmd('mapping_actor.xml'), fmd('mapping_info.xml'), fmd('c_number.json'))
@@ -709,7 +709,7 @@ def period(delta, pattern):
 
 
 if __name__ == '__main__':
-    version = '6.6.11'
+    version = '6.6.13'
     urllib3.disable_warnings()  # Ignore http proxy warning
     app_start = time.time()
 
