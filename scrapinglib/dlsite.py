@@ -36,12 +36,14 @@ class Dlsite(Parser):
         lambda k: k.replace('上巻', '').replace('下巻', '').replace('前編', '').replace('後編', ''),
     ]
 
+    dlsite_type = ['maniax', 'pro']
+
     def extraInit(self):
         self.imagecut = 4
         self.allow_number_change = True
         # 设置反反爬虫头信息
         self.extraheader = {
-            'Referer': 'https://www.dlsite.com/maniax/',
+            'Referer': 'https://www.dlsite.com/',
         }
 
     def search(self, number):
@@ -53,34 +55,38 @@ class Dlsite(Parser):
             htmltree = self.getHtmlTree(self.detailurl)
         elif "RJ" in number or "VJ" in number:
             self.number = number.upper()
-            self.detailurl = 'https://www.dlsite.com/maniax/work/=/product_id/{}.html/?locale=zh_CN'
-            self.detailurl = self.detailurl.format(self.number)
-            htmltree = self.getHtmlTree(self.detailurl)
+            detail_base_url = 'https://www.dlsite.com/{}/work/=/product_id/{}.html/?locale=zh_CN'
+            for dltype in self.dlsite_type:
+                self.detailurl = detail_base_url.format(dltype, self.number)
+                htmltree = self.getHtmlTree(self.detailurl)
+                if htmltree is not None:
+                    break
         else:
-            search_url = 'https://www.dlsite.com/maniax/fsr/=/language/jp/sex_category/male/keyword/{}/order/trend/work_type_category/movie'
+            search_url = 'https://www.dlsite.com/{}/fsr/=/language/jp/sex_category/male/keyword/{}/order/trend/work_type_category/movie'
             detail_xpath = '//*[@id="search_result_img_box"]/li[1]/dl/dd[2]/div[2]/a/@href'
             self.detailurl = None
-            for i, strategy in enumerate(self.keyword_strategies):
-                search_keyword = strategy(number)  # 修复：使用参数 number
-                if not search_keyword.strip():  # 跳过空关键词
-                    continue
+            for dltype in self.dlsite_type:
+                for i, strategy in enumerate(self.keyword_strategies):
+                    search_keyword = strategy(number)  # 修复：使用参数 number
+                    if not search_keyword.strip():  # 跳过空关键词
+                        continue
 
-                encoded_keyword = urllib.parse.quote(search_keyword.strip())
-                # DLsite 搜索会将空格编码为 + 而不是 %20 ，这样可以避免 Cloudflare 的 403 拦截
-                encoded_keyword = encoded_keyword.replace('%20', '+')
-                strategied_url = search_url.format(encoded_keyword)
-                # print(f"搜索策略 {i+1}: {strategied_url}")
-                try:
-                    search_tree = self.getHtmlTree(strategied_url)
-                    search_result = self.getTreeAll(search_tree, detail_xpath)
-                    # print(f"搜索结果: {search_tree} {search_result}")
-                    if len(search_result) > 0:
-                        self.detailurl = search_result[0]
-                        # print(f"搜索策略 {i+1} 成功: {self.detailurl}")
-                        break
-                except Exception as e:
-                    # print(f"搜索策略 {i+1} 失败: {e}")
-                    continue
+                    encoded_keyword = urllib.parse.quote(search_keyword.strip())
+                    # DLsite 搜索会将空格编码为 + 而不是 %20 ，这样可以避免 Cloudflare 的 403 拦截
+                    encoded_keyword = encoded_keyword.replace('%20', '+')
+                    strategied_url = search_url.format(dltype, encoded_keyword)
+                    # print(f"搜索策略 {i+1}: {strategied_url}")
+                    try:
+                        search_tree = self.getHtmlTree(strategied_url)
+                        search_result = self.getTreeAll(search_tree, detail_xpath)
+                        # print(f"搜索结果: {search_tree} {search_result}")
+                        if len(search_result) > 0:
+                            self.detailurl = search_result[0]
+                            # print(f"搜索策略 {i+1} 成功: {self.detailurl}")
+                            break
+                    except Exception as e:
+                        # print(f"搜索策略 {i+1} 失败: {e}")
+                        continue
 
             if not self.detailurl:
                 print(f"[-] [dlsite] 无法找到关键词 '{number}' 对应的作品，已尝试所有搜索策略")
