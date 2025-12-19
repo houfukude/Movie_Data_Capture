@@ -129,6 +129,11 @@ class Parser:
                 or '<title>404' in resp \
                 or '<title>お探しの商品が見つかりません' in resp:
             return 404
+        if '<title>403 Forbidden' in resp \
+                or '403 Forbidden' in resp \
+                or 'Forbidden' in resp \
+                or '<title>403' in resp:
+            return 403
         return resp
 
     def get_by_scraper(self, url, encoding=None, type=None, retry=0):
@@ -141,14 +146,20 @@ class Parser:
                 or '<title>404' in resp \
                 or '<title>お探しの商品が見つかりません' in resp:
             return 404
+        if '<title>403 Forbidden' in resp \
+                or '403 Forbidden' in resp \
+                or 'Forbidden' in resp \
+                or '<title>403' in resp:
+            return 403
         return resp
 
     def getHtmlTree(self, url, type=None):
         """ 访问网页,返回`etree`
         """
         resp_text = self.getHtml(url, type)
-        if resp_text == 404:
-            return 404
+        if isinstance(resp_text, int):
+            print(f'[-] getHtmlTree error {resp_text}')
+            return resp_text
         ret = etree.fromstring(resp_text, etree.HTMLParser(recover=True))
         return ret
 
@@ -305,6 +316,8 @@ class Parser:
     def getTreeAll(self, tree: html.HtmlElement, expr):
         """ 根据表达式从`xmltree`中获取全部匹配值
         """
+        if isinstance(tree, int):
+            return []
         return getTreeAll(tree, expr)
 
     def getTreeElementbyExprs(self, tree: html.HtmlElement, expr, expr2=''):

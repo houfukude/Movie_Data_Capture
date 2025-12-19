@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import re
+import urllib.parse
 from .parser import Parser
 
 
@@ -24,9 +25,24 @@ class Dlsite(Parser):
     expr_label2 = '//th[contains(text(),"社团名")]/../td/span[1]/a/text()'
     expr_extrafanart = '//*[@id="work_left"]/div/div/div[1]/div/@data-src'
 
+    keyword_strategies = [
+        # 原始关键词
+        lambda k: k,
+        # 移除动画相关后缀
+        lambda k: k.replace("THE ANIMATION", "").replace("he Animation", "").replace("t", "").replace("T", ""),
+        # 波浪号转换
+        lambda k: k.replace("～", "〜") if "～" in k else k.replace("〜", "～") if "〜" in k else k,
+        # 移除卷标
+        lambda k: k.replace('上巻', '').replace('下巻', '').replace('前編', '').replace('後編', ''),
+    ]
+
     def extraInit(self):
         self.imagecut = 4
         self.allow_number_change = True
+        # 设置反反爬虫头信息
+        self.extraheader = {
+            'Referer': 'https://www.dlsite.com/pro/',
+        }
 
     def search(self, number):
         self.cookies = {'locale': 'zh-cn'}
@@ -37,28 +53,38 @@ class Dlsite(Parser):
             htmltree = self.getHtmlTree(self.detailurl)
         elif "RJ" in number or "VJ" in number:
             self.number = number.upper()
-            self.detailurl = 'https://www.dlsite.com/maniax/work/=/product_id/' + self.number + '.html/?locale=zh_CN'
+            self.detailurl = 'https://www.dlsite.com/pro/work/=/product_id/' + self.number + '.html/?locale=zh_CN'
             htmltree = self.getHtmlTree(self.detailurl)
         else:
-            self.detailurl = f'https://www.dlsite.com/maniax/fsr/=/language/jp/sex_category/male/keyword/{number}/order/trend/work_type_category/movie'
-            htmltree = self.getHtmlTree(self.detailurl)
-            search_result = self.getTreeAll(htmltree, '//*[@id="search_result_img_box"]/li[1]/dl/dd[2]/div[2]/a/@href')
-            if len(search_result) == 0:
-                number = number.replace("THE ANIMATION", "").replace("he Animation", "").replace("t", "").replace("T", "")
-                htmltree = self.getHtmlTree(f'https://www.dlsite.com/maniax/fsr/=/language/jp/sex_category/male/keyword/{number}/order/trend/work_type_category/movie')
-                search_result = self.getTreeAll(htmltree, '//*[@id="search_result_img_box"]/li[1]/dl/dd[2]/div[2]/a/@href')
-                if len(search_result) == 0:
-                    if "～" in number:
-                        number = number.replace("～", "〜")
-                    elif "〜" in number:
-                        number = number.replace("〜", "～")
-                    htmltree = self.getHtmlTree(f'https://www.dlsite.com/maniax/fsr/=/language/jp/sex_category/male/keyword/{number}/order/trend/work_type_category/movie')
-                    search_result = self.getTreeAll(htmltree, '//*[@id="search_result_img_box"]/li[1]/dl/dd[2]/div[2]/a/@href')
-                    if len(search_result) == 0:
-                        number = number.replace('上巻', '').replace('下巻', '').replace('前編', '').replace('後編', '')
-                        htmltree = self.getHtmlTree(f'https://www.dlsite.com/maniax/fsr/=/language/jp/sex_category/male/keyword/{number}/order/trend/work_type_category/movie')
-                        search_result = self.getTreeAll(htmltree, '//*[@id="search_result_img_box"]/li[1]/dl/dd[2]/div[2]/a/@href')
-            self.detailurl = search_result[0]
+            search_url = 'https://www.dlsite.com/pro/fsr/=/language/jp/sex_category/male/keyword/{}/order/trend/work_type_category/movie'
+            detail_xpath = '//*[@id="search_result_img_box"]/li[1]/dl/dd[2]/div[2]/a/@href'
+            self.detailurl = None
+            for i, strategy in enumerate(self.keyword_strategies):
+                search_keyword = strategy(number)  # 修复：使用参数 number
+                if not search_keyword.strip():  # 跳过空关键词
+                    continue
+
+                encoded_keyword = urllib.parse.quote(search_keyword.strip())
+                # DLsite 搜索会将空格编码为 + 而不是 %20 ，这样可以避免 Cloudflare 的 403 拦截
+                encoded_keyword = encoded_keyword.replace('%20', '+') 
+                strategied_url = search_url.format(encoded_keyword)
+                # print(f"搜索策略 {i+1}: {strategied_url}")
+                try:
+                    search_tree = self.getHtmlTree(strategied_url)
+                    search_result = self.getTreeAll(search_tree, detail_xpath)
+                    # print(f"搜索结果: {search_tree} {search_result}")
+                    if len(search_result) > 0:
+                        self.detailurl = search_result[0]
+                        # print(f"搜索策略 {i+1} 成功: {self.detailurl}")
+                        break
+                except Exception as e:
+                    # print(f"搜索策略 {i+1} 失败: {e}")
+                    continue
+
+            if not self.detailurl:
+                print(f"[-] [dlsite] 无法找到关键词 '{number}' 对应的作品，已尝试所有搜索策略")
+                return ""  # 明确返回 None 而不是抛出异常
+
             htmltree = self.getHtmlTree(self.detailurl)
             self.number = str(re.findall(r"\wJ\w+", self.detailurl)).strip(" [']")
 
