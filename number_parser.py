@@ -53,7 +53,7 @@ def get_number(debug: bool, file_path: str) -> str:
         file_number = get_number_by_dict(filepath)
         if file_number:
             return file_number
-        elif '字幕组' in filepath or 'SUB' in filepath.upper() or re.match(r'[\u30a0-\u30ff]+', filepath):
+        elif '字幕组' in filepath or 'SUB' in filepath.upper() or re.search(r'[\u30a0-\u30ff]+', filepath):
             filepath = G_spat.sub("", filepath)
             filepath = re.sub(r"\[.*?\]", "", filepath)
             filepath = filepath.replace(".chs", "").replace(".cht", "")
@@ -204,7 +204,11 @@ if __name__ == "__main__":
         "rctd-461-C-cD4.mp4",  # cD1 Cd1 cd1 CD1 最终生成.nfo时统一为大写CD1
         "MD-123.ts",
         "MDSR-0001-ep2.ts",
-        "MKY-NS-001.mp4"
+        "MKY-NS-001.mp4",
+        # Anime test cases with Japanese characters (issue: re.match vs re.search)
+        "せいかつ指導！！ Anime Edition -あい・さくら・なな-.mp4",
+        "[脸肿字幕组][PoRO]牝教師4～穢された教壇～ 「生意気ドジっ娘女教師・美結～高飛車ハメ堕ち2濁金」[720p][x264_aac].mp4",
+        "鬼作 -KIKAKU- 1st.アニメーション作品.mp4"
     )
 
     def evprint(evstr):
