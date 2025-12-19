@@ -39,7 +39,7 @@ def moveFailedFolder(filepath):
     elif conf.failed_move() and not link_mode:
         failed_name = os.path.join(failed_folder, os.path.basename(filepath))
         mtxt = os.path.abspath(os.path.join(failed_folder, 'where_was_i_before_being_moved.txt'))
-        print("'[-]Move to Failed output folder, see '%s'" % mtxt)
+        print(f"[-]Move to Failed output folder, see '%s'" % mtxt)
         with open(mtxt, 'a', encoding='utf-8') as wwibbmt:
             tmstr = datetime.now().strftime("%Y-%m-%d %H:%M")
             wwibbmt.write(f'{tmstr} FROM[{filepath}]TO[{failed_name}]\n')

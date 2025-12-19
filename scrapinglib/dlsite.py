@@ -41,7 +41,7 @@ class Dlsite(Parser):
         self.allow_number_change = True
         # 设置反反爬虫头信息
         self.extraheader = {
-            'Referer': 'https://www.dlsite.com/pro/',
+            'Referer': 'https://www.dlsite.com/maniax/',
         }
 
     def search(self, number):
@@ -53,10 +53,11 @@ class Dlsite(Parser):
             htmltree = self.getHtmlTree(self.detailurl)
         elif "RJ" in number or "VJ" in number:
             self.number = number.upper()
-            self.detailurl = 'https://www.dlsite.com/pro/work/=/product_id/' + self.number + '.html/?locale=zh_CN'
+            self.detailurl = 'https://www.dlsite.com/maniax/work/=/product_id/{}.html/?locale=zh_CN'
+            self.detailurl = self.detailurl.format(self.number)
             htmltree = self.getHtmlTree(self.detailurl)
         else:
-            search_url = 'https://www.dlsite.com/pro/fsr/=/language/jp/sex_category/male/keyword/{}/order/trend/work_type_category/movie'
+            search_url = 'https://www.dlsite.com/maniax/fsr/=/language/jp/sex_category/male/keyword/{}/order/trend/work_type_category/movie'
             detail_xpath = '//*[@id="search_result_img_box"]/li[1]/dl/dd[2]/div[2]/a/@href'
             self.detailurl = None
             for i, strategy in enumerate(self.keyword_strategies):
@@ -66,7 +67,7 @@ class Dlsite(Parser):
 
                 encoded_keyword = urllib.parse.quote(search_keyword.strip())
                 # DLsite 搜索会将空格编码为 + 而不是 %20 ，这样可以避免 Cloudflare 的 403 拦截
-                encoded_keyword = encoded_keyword.replace('%20', '+') 
+                encoded_keyword = encoded_keyword.replace('%20', '+')
                 strategied_url = search_url.format(encoded_keyword)
                 # print(f"搜索策略 {i+1}: {strategied_url}")
                 try:
