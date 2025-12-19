@@ -116,7 +116,7 @@ def getStoryline_mp(args):
 
 def getStoryline_airav(number, debug, proxies, verify):
     try:
-        site = secrets.choice(('airav.cc', 'airav4.club'))
+        site = secrets.choice(('airav.io', 'airav4.club'))
         url = f'https://{site}/searchresults.aspx?Search={number}&Type=0'
         session = httprequest.request_session(proxies=proxies, verify=verify, retry=0)
         res = session.get(url)
