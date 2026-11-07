@@ -42,7 +42,11 @@ class Jav321(Parser):
         return None
 
     def getNum(self, htmltree):
-        return super().getNum(htmltree).split(": ")[1]
+        # jav321 页面上的品番是小写（如 adn-187），这里统一转大写，
+        # 否则 location_rule / naming_rule 生成的目录名与文件前缀都会是小写
+        raw = super().getNum(htmltree)
+        num = raw.split(": ")[1] if ": " in raw else raw
+        return num.strip().upper()
 
     def getTrailer(self, htmltree):
         videourl_pather = re.compile(r'<source src=\"(.*?)\"')
