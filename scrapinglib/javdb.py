@@ -3,6 +3,7 @@
 import re
 from urllib.parse import urljoin
 from lxml import etree
+import config
 from .httprequest import request_session
 from .parser import Parser
 
@@ -18,7 +19,10 @@ class Javdb(Parser):
     expr_runtime2 = '//strong[contains(text(),"時長")]/../span/a/text()'
     expr_uncensored = '//strong[contains(text(),"類別")]/../span/a[contains(@href,"/tags/uncensored?") or contains(@href,"/tags/western?")]'
     expr_actor = '//span[@class="value"]/a[contains(@href,"/actors/")]/text()'
-    expr_actor2 = '//span[@class="value"]/a[contains(@href,"/actors/")]/../strong/@class'
+    # NOTE: javdb 改版后演员性别标记放在 <a> 自身 class 上（actor-female / actor-male），
+    # 不再是 <strong class="symbol female">，原 expr_actor2 取不到任何值。
+    # 这里取节点本身而不是 @class，避免无 class 的节点被 xpath 跳过、导致与演员列表错位。
+    expr_actor_node = '//span[@class="value"]/a[contains(@href,"/actors/")]'
     expr_release = '//strong[contains(text(),"日期")]/../span/text()'
     expr_release_no = '//*[contains(@class,"movie-list")]/div/a/div[contains(@class, "meta")]/text()'
     expr_studio = '//strong[contains(text(),"片商")]/../span/a/text()'
@@ -124,6 +128,12 @@ class Javdb(Parser):
             print(f'[!] {self.number}: Error in queryNumberUrl: {str(e)}')
             print(f'[!] Response status: {resp.status_code if "resp" in locals() else "N/A"}')
             print(f'[!] Response URL: {resp.url if "resp" in locals() else "N/A"}')
+            # 配置中的镜像站（如 [javdb] sites=521 -> javdb521.com）可能已失效，
+            # scraper 又是随机选站，会导致 javdb 时好时坏。这里回退到主域再试一次。
+            if self.dbsite and self.dbsite != 'javdb':
+                print(f'[!] {self.number}: {self.dbsite} 不可用，回退 javdb.com 重试')
+                self.dbsite = 'javdb'
+                return self.queryNumberUrl(number)
             raise
 
     def getNum(self, htmltree):
@@ -175,19 +185,25 @@ class Javdb(Parser):
         return result
 
     def getActors(self, htmltree):
-        actors = self.getTreeAll(htmltree, self.expr_actor)
-        genders = self.getTreeAll(htmltree, self.expr_actor2)
+        nodes = self.getTreeAll(htmltree, self.expr_actor_node)
+        actor_list = [(node.text or '').strip() for node in nodes]
+        # 缺少 class 的节点（通常是男优）按空串处理，不跳过，保证与 actor_list 一一对应
+        gender_list = [(node.get('class') or '') for node in nodes]
+        actor_gendor = config.getInstance().actor_gender()
         r = []
-        idx = 0
-        # NOTE only female, we dont care others
-        actor_gendor = 'female'
-        for act in actors:
-            if ((actor_gendor == 'all')
-               or (actor_gendor == 'both' and genders[idx] in ['symbol female', 'symbol male'])
-               or (actor_gendor == 'female' and genders[idx] == 'symbol female')
-               or (actor_gendor == 'male' and genders[idx] == 'symbol male')):
+        # 页面若无任何性别标记则不过滤，避免整份演员表被丢弃后填充为“佚名”
+        filter_by_gender = any(gender_list) and actor_gendor != 'all'
+        for act, gender in zip(actor_list, gender_list):
+            if not act:
+                continue
+            if not filter_by_gender:
                 r.append(act)
-            idx = idx + 1
+            elif actor_gendor == 'both' and ('actor-female' in gender or 'actor-male' in gender):
+                r.append(act)
+            elif actor_gendor == 'female' and 'actor-female' in gender:
+                r.append(act)
+            elif actor_gendor == 'male' and 'actor-male' in gender:
+                r.append(act)
         if re.match(r'FC2-[\d]+', self.number, re.A) and not r:
             r = '素人'
             self.fixstudio = True

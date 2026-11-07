@@ -23,7 +23,7 @@ from . import httprequest
 # 舍弃 Amazon 源
 G_registered_storyline_site = {"airavwiki", "airav", "avno1", "xcity", "58avgo"}
 
-G_mode_txt = ('顺序执行', '线程池')
+G_mode_txt = ('顺序执行', '线程池', '进程池')
 
 
 def is_japanese(raw: str) -> bool:
@@ -65,7 +65,9 @@ def getStoryline(number, title=None, sites: list = None, uncensored=None, proxie
     cores = min(len(sort_sites), os.cpu_count())
     if cores == 0:
         return ''
-    run_mode = 1
+    # 原为硬编码 1，导致 config 中 [storyline] run_mode 失效。
+    # 0:顺序执行 1:线程池 2:进程池（顺序执行不需要 multiprocessing，可在受限环境下兜底）
+    run_mode = config.getInstance().storyline_mode()
     with ThreadPool(cores) if run_mode > 0 else noThread() as pool:
         results = pool.map(getStoryline_mp, mp_args)
     sel = ''
