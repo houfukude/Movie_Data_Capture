@@ -52,9 +52,17 @@ class Javmenu(Parser):
 
     def getTitle(self, htmltree):
         browser_title = super().getTitle(htmltree)
-        # 删除番号
-        number = re.findall(r"\d+", self.number)[1]
-        title = browser_title.split(number, 1)[-1]
-        title = title.replace(' | JAV目錄大全 | 每日更新', "")
-        title = title.replace(' | JAV目录大全 | 每日更新', "").strip()
-        return title.replace(self.number, '').strip()
+        # 删除番号与站点后缀
+        # NOTE: 原来固定取 re.findall(...)[1]，遇到只有一个数字段的番号（如 ADN-187、
+        # SSIS-001）会 IndexError，整个源解析失败。
+        title = browser_title
+        if re.search(re.escape(self.number), title, re.I):
+            # 有些页面 og:title 里番号出现两次（前缀 + 中间），全部去掉
+            title = re.sub(re.escape(self.number), '', title, flags=re.I)
+        else:
+            numbers = re.findall(r"\d+", self.number)
+            if numbers:
+                title = title.split(numbers[-1], 1)[-1]
+        title = title.replace(' | JAV目錄大全 | 每日更新', '')
+        title = title.replace(' | JAV目录大全 | 每日更新', '')
+        return title.strip()
