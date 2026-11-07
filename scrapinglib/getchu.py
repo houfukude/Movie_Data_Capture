@@ -4,8 +4,25 @@ import re
 import json
 from urllib.parse import quote
 from lxml import etree
+from opencc import OpenCC
 from scrapinglib import httprequest
 from .parser import Parser
+
+_G_S2T = None
+
+
+def to_traditional(text: str) -> str:
+    """getchu 的搜索参数是 EUC-JP 编码，简体字（如 华/仆）无法编码会直接抛
+    UnicodeEncodeError。这里先简转繁，再交给 quote。"""
+    global _G_S2T
+    if _G_S2T is None:
+        try:
+            _G_S2T = OpenCC('s2t')
+        except Exception:
+            _G_S2T = False
+    if not _G_S2T:
+        return text
+    return _G_S2T.convert(text)
 
 
 class Getchu(Parser):
@@ -44,7 +61,8 @@ class Getchu(Parser):
         if "item" in number or 'GETCHU' in number.upper():
             self.number = re.findall(r'\d+', number)[0]
         else:
-            queryUrl = self.GETCHU_WWW_SEARCH_URL.format(keyword=quote(number, encoding="euc_jp"))
+            queryUrl = self.GETCHU_WWW_SEARCH_URL.format(
+                keyword=quote(to_traditional(number), encoding="euc_jp", errors='ignore'))
             htmlTree = self.getHtmlTree(queryUrl)
             queryUrl = self.getTreeElement(htmlTree, '//a[@class="blueb"]/@href')
             self.number = re.findall(r'\d+', queryUrl)[0]
@@ -52,8 +70,9 @@ class Getchu(Parser):
 
     def getHtml(self, url, type=None):
         """ 通过 scraper 的方式访问网页(指定EUC-JP)
+        NOTE: getchu 响应较慢（搜索页实测 ~15s），默认 10s 会 ReadTimeout
         """
-        resp = self.get_by_scraper(url,  encoding='euc_jis_2004',  type=type)
+        resp = self.get_by_scraper(url,  encoding='euc_jis_2004',  type=type, timeout=40)
         return resp
 
     def getNum(self, htmltree):

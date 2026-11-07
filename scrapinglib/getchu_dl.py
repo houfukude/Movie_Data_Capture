@@ -5,6 +5,7 @@ import json
 from urllib.parse import quote
 from lxml import etree
 from scrapinglib import httprequest
+from .getchu import to_traditional
 from .parser import Parser
 
 
@@ -40,8 +41,12 @@ class Getchu_dl(Parser):
         if "item" in number or 'GETCHU' in number.upper():
             self.number = re.findall(r'\d+', number)[0]
         else:
-            queryUrl = self.GETCHU_DL_SEARCH_URL.replace("_WORD_", quote(number, encoding="euc_jp"))
+            queryUrl = self.GETCHU_DL_SEARCH_URL.replace(
+                "_WORD_", quote(to_traditional(number), encoding="euc_jp", errors='ignore'))
             queryTree = self.getHtmlTree(queryUrl)
+            if not queryTree:
+                # dl.getchu.com 搜索接口会直接返回 403 空响应，此时不能继续解析
+                return None
             detailurl = self.getTreeElement(queryTree, '//img[@class="goods_pic_sample"]/@src')
             self.cover_small = "http://dl.getchu.com" + detailurl  # .replace('../', '')
             if detailurl == "":
@@ -52,8 +57,9 @@ class Getchu_dl(Parser):
 
     def getHtml(self, url, type=None):
         """ 通过 scraper 的方式访问网页(指定EUC-JP)
+        NOTE: getchu 系站点响应较慢，默认 10s 容易 ReadTimeout
         """
-        resp = self.get_by_scraper(url,  encoding='euc_jis_2004',  type=type)
+        resp = self.get_by_scraper(url,  encoding='euc_jis_2004',  type=type, timeout=40)
         return resp
 
     def getNum(self, htmltree):

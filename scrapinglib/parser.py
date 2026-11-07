@@ -136,10 +136,11 @@ class Parser:
             return 403
         return resp
 
-    def get_by_scraper(self, url, encoding=None, type=None, retry=0):
-        """ 访问网页
+    def get_by_scraper(self, url, encoding=None, type=None, retry=0, timeout=10):
+        """ 访问网页,返回`etree`
+        :param timeout 部分站点（如 getchu）响应较慢，需要放宽默认 10s
         """
-        resp = httprequest.get_html_by_scraper(url, cookies=self.cookies, proxies=self.proxies, extra_headers=self.extraheader, encoding=encoding, verify=self.verify, return_type=type)
+        resp = httprequest.get_html_by_scraper(url, cookies=self.cookies, proxies=self.proxies, extra_headers=self.extraheader, encoding=encoding, verify=self.verify, return_type=type, timeout=timeout)
         if '<title>404 Page Not Found' in resp \
                 or '<title>未找到页面' in resp \
                 or '404 Not Found' in resp \
