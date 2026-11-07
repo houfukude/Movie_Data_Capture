@@ -33,6 +33,12 @@ class Javbus(Parser):
     expr_tags = '/html/head/meta[@name="keywords"]/@content'
     expr_uncensored = '//*[@id="navbar"]/ul[1]/li[@class="active"]/a[contains(@href,"uncensored")]'
 
+    def extraInit(self):
+        # javbus 对缺少 Accept-Language 的请求会判定为爬虫，直接 302 到
+        # /doc/driver-verify 年龄确认页；而 httprequest.get 不跟随重定向，
+        # 于是只拿到 302 的空 body，解析结果全空。加上该头即可直接取到详情页。
+        self.extraheader = {'Accept-Language': 'zh-CN,zh;q=0.9,ja;q=0.8'}
+
     def search(self, number):
         self.number = number
         # self.cookies =  {
@@ -76,14 +82,17 @@ class Javbus(Parser):
                 ]) + "/"
                 self.detailurl = mirror_url + number
                 self.htmlcode = self.getHtml(self.detailurl)
-            if self.htmlcode == 404:
+            if self.htmlcode in (403, 404):
                 return 404
+            if not isinstance(self.htmlcode, str) or not self.htmlcode.strip():
+                raise ValueError('empty response from javbus')
             htmltree = etree.fromstring(self.htmlcode,etree.HTMLParser())
             self.extraheader = {"Referer": self.detailurl}
             result = self.dictformat(htmltree)
             return result
-        except:
-            self.searchUncensored(number)
+        except Exception:
+            # NOTE: 原来这里漏了 return，searchUncensored 的结果被直接丢弃
+            return self.searchUncensored(number)
 
     def dictformat(self, htmltree):
         try:
