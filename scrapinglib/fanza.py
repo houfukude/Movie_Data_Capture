@@ -49,12 +49,22 @@ class Fanza(Parser):
             self.detailurl = url + fanza_search_number
             url = "https://www.dmm.co.jp/age_check/=/declared=yes/?" + urlencode({"rurl": self.detailurl})
             self.htmlcode = self.getHtml(url)
-            if self.htmlcode != 404 \
-                    and 'Sorry! This content is not available in your region.' not in self.htmlcode:
-                self.htmltree = etree.HTML(self.htmlcode)
-                if self.htmltree is not None:
-                    result = self.dictformat(self.htmltree)
-                    return result
+            if self.htmlcode == 404:
+                continue
+            # 地区限制有英文和日文两种提示，原来只判断了英文，日文页面会被当成详情页解析。
+            # 这是 IP 级限制，换分类没有意义，直接结束，避免 7 个 URL 各跑一遍。
+            if any(x in self.htmlcode for x in (
+                    'Sorry! This content is not available in your region.',
+                    'お住まいの地域からご利用になれません')):
+                return 404
+            self.htmltree = etree.HTML(self.htmlcode)
+            if self.htmltree is None:
+                continue
+            # 年龄确认页等非详情页没有「品番」表格，继续解析只会抛异常，直接跳过
+            if not self.htmltree.xpath('//td[contains(text(),"品番")]'):
+                continue
+            result = self.dictformat(self.htmltree)
+            return result
         return 404
 
     def getNum(self, htmltree):
@@ -87,7 +97,13 @@ class Fanza(Parser):
             return ''
 
     def getRuntime(self, htmltree):
-        return str(re.search(r'\d+', super().getRuntime(htmltree)).group()).strip(" ['']")
+        # NOTE: 原来直接 re.search(...).group()，页面没有时长时抛
+        # 'NoneType' object has no attribute 'group'，导致整个源解析失败
+        try:
+            matched = re.search(r'\d+', super().getRuntime(htmltree))
+            return matched.group().strip(" ['']") if matched else ''
+        except Exception:
+            return ''
 
     def getDirector(self, htmltree):
         if "anime" not in self.detailurl:
