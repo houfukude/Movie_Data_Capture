@@ -139,6 +139,7 @@ def get_data_from_json(
 
     imagecut = json_data.get('imagecut')
     tag = str(json_data.get('tag')).strip("[ ]").replace("'", '').replace(" ", '').split(',')  # 字符串转列表 @
+    tag = [t for t in tag if t]  # 去掉空项：源未提供 tag 时会得到 ['']
     while 'XXXX' in tag:
         tag.remove('XXXX')
     while 'xxx' in tag:
